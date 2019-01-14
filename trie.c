@@ -1,6 +1,7 @@
 //                      gcc binary.c -o binary;./binary
 #include <stdio.h>
 #include <stdlib.h>
+#include<string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -9,7 +10,7 @@
 
 #define LEN 26
 #define MAX 100
-#define NODE_NUM 10000000
+#define NODE_NUM 1027804
 
 typedef struct Node
 {
@@ -18,13 +19,28 @@ typedef struct Node
     int children;
 } Node;
 
-int deleteStack[MAX], deleteTop;
-unsigned int end, availableTop;
+typedef struct DeleteNode
+{
+    char ch;
+    int current_off;
+    int previous_off;
+}DeleteNode;
 
-FILE *fp, *fpStack, *fpCnt;
-int trie_fd, cnt_fd, stack_fd;
+typedef struct Avaliable
+{
+  int a_offset;
+}Avaliable;
+int deleteStack[MAX], deleteTop=-1;
+unsigned int end, availableTop=-1;
+
+FILE *fp, *fpStack, *fpava;
+int trie_fd, ava_fd, stack_fd;
 Node *trie;
-int *cnt, *stack;
+DeleteNode *deleteTire;
+Avaliable *avaliable;
+// int *cnt, *stack;
+
+
 
 Node root;
 
@@ -41,169 +57,405 @@ int newNode()
         ; //printf("Trie memory full\n");
         exit(0);
     }
+    //return ++end;
     if (availableTop == 0)
-    // return ++end;
+     return ++end;
+    else
     {
-        return ++end;
-    }
-    int val;
-    val = stack[availableTop - 1 + 1];
-
-    if (val == 1)
-    {
-        val = stack[availableTop - 2 + 1];
-        availableTop -= 2;
+        int val = avaliable[availableTop].a_offset;
+        availableTop--;
         return val;
     }
-    availableTop--;
-    return val; 
+    
 }
 void insertTrie(char *key)
 {
-    int i,prev=1,prevprev=0,found,found_sibling,end_sibling=0,cond;
-    Node curr = trie[1];
-    cond=0;
+    int i,prev_off=0,curr_off=1;
+    Node curr = trie[curr_off];
 
-    //printf("ch = %c\nsibling = %d\nchildren = %d\n",curr.ch,curr.sibling,curr.children);
     for(i = 0; key[i];i++)
     {
-        //printf("curr.children = %d\n",curr.children);
-        if(curr.children)
+        if(absolute(curr.children))
         {
-            //printf("If curr.children = %d\n",curr.children);
-            found=0;
-            while(curr.children && !found)
+            if(trie[absolute(trie[absolute(curr_off)].children)].ch==key[i])
             {
-                if(trie[absolute(curr.children)].ch == key[i])
-                    {
-                        curr = trie[absolute(curr.children)];
-                        prevprev=prev;
-                        if(trie[absolute(trie[absolute(trie[absolute(prevprev)].sibling)].children)].children == curr.children)
-                            {
-                                cond=1;
-                                prev = trie[absolute(prev)].sibling;
-                            }
-                        else
-                            {
-                                prev = trie[absolute(prev)].children;
-                            }
-                        found=1;
-                    }
-                else
-                    {
-                        prev=trie[absolute(prev)].children;
-                        curr = trie[absolute(curr.children)];
-                        found_sibling = 0;
-                        printf("-------------prev %d curr=.ch %c\n",prev,curr.ch);
-
-                        while(curr.sibling && !found_sibling)
-                        {
-                            if(trie[absolute(curr.sibling)].ch == key[i])
-                                {
-                                    curr = trie[absolute(curr.sibling)];
-                                    found_sibling = 1;
-                                    found=1;
-                                }
-                             /* else if(trie[absolute(curr.sibling)].ch > key[i])
-                                {
-                                    Node temp;
-                                    int new_node = newNode();
-                                    if(!key[i+1])
-                                        end_sibling=1;
-                                    temp.ch = key[i];
-                                    temp.children = 0;
-                                    temp.sibling = trie[absolute(prev)].children;
-                                    trie[absolute(prev)].children = new_node;
-                                    found_sibling = 1;
-                                    found=1;
-                                    prevprev=prev;
-                                    prev = new_node;
-                                    curr = temp;
-                                }*/
-                            else
-                                {
-                                    
-                                    prevprev=prev;
-                                    prev = trie[absolute(prev)].sibling;
-                                    curr = trie[absolute(curr.sibling)];
-                                   
-                                }
-                        }
-                        if(!found_sibling)
-                        {
-                              if(!key[i+1])
-                                        end_sibling=1;
-                            Node temp;
-                            found=1;
-                            // prevprev = prev;
-                            // prev=trie[absolute(prev)].children;
-                            int new_node = newNode();
-                            temp.ch = key[i];
-                            temp.children = 0;
-                            temp.sibling = curr.sibling;
-                            // trie[absolute(trie[absolute(prev)].sibling)].sibling = new_node;
-                            trie[absolute(prev)].sibling = new_node;
-                            trie[new_node] = temp;
-                            prevprev=prev;
-                            prev=new_node;
-                            curr = temp;
-                        }
-
-                    }
+                curr=trie[absolute(trie[absolute(curr_off)].children)];
+                prev_off=absolute(curr_off);
+                curr_off=absolute(trie[absolute(curr_off)].children);
             }
-        }
+            else
+            {   // Sibling traversal 
+                curr=trie[absolute(trie[absolute(curr_off)].children)];
+                prev_off=absolute(curr_off);
+                curr_off=absolute(trie[absolute(curr_off)].children);
+                int found_sibling=0;
+                // Traverse the sibling list
+                while(absolute(curr.sibling) && !found_sibling)
+                {
+                    if(trie[absolute(trie[absolute(curr_off)].sibling)].ch==key[i])
+                    {
+                        found_sibling=1;
+                        curr=trie[absolute(trie[absolute(curr_off)].sibling)];
+                        prev_off=absolute(curr_off);
+                        curr_off=absolute(trie[absolute(curr_off)].sibling);
+                        
+
+                    }
+                    else
+                    {
+                        curr=trie[absolute(trie[absolute(curr_off)].sibling)];
+                        prev_off=absolute(curr_off);
+                        curr_off=absolute(trie[absolute(curr_off)].sibling);
+                    }
+
+
+
+                }
+                 // Key not found in sibling list
+                if(!found_sibling)
+                {
+                   // Creating new sibling node and linking it to its previous sibling
+                    Node temp;
+                    int new_node_number=newNode();
+                    temp.ch=key[i];
+                    temp.children=0;
+                    temp.sibling=0;
+                    trie[new_node_number]=temp;
+                    curr=trie[absolute(new_node_number)]; 
+                    prev_off=absolute(curr_off);
+                    curr_off=new_node_number;
+                    trie[absolute(prev_off)].sibling=new_node_number;
+                   
+                 }
+                }
+            }
         else
         {
-            //printf("prev = %d\n",prev);
-            trie[absolute(prev)].children = newNode();
-            curr = trie[absolute(trie[absolute(prev)].children)];      
-            curr.ch = key[i];
-            curr.children = 0;
-            curr.sibling = 0;
+            // Creating new child node and linking it to its parent
+            Node temp;
+            int new_node_number=newNode();
+            //printf("new node=%d",new_node_number);
+            temp.ch=key[i];
+            temp.children=0;
+            temp.sibling=0;
+            trie[new_node_number]=temp;
+            prev_off=absolute(curr_off);
+            curr_off=new_node_number;
+            curr=trie[absolute(new_node_number)];
+            trie[absolute(prev_off)].children=new_node_number;
+            
+         }
 
-            trie[absolute(trie[absolute(prev)].children)].ch = key[i];
-            trie[absolute(trie[absolute(prev)].children)].sibling = 0;
-            trie[absolute(trie[absolute(prev)].children)].children = 0;
-            prevprev=prev;
-            prev = trie[absolute(prev)].children;             
-        }
     }
-    if(cond)
-        {
-            prevprev=prev;
-        }
-    printf("prev.ch=%c\n",trie[absolute(prev)].ch);
-    printf("prev.children=%d\n",trie[absolute(prev)].children);
-    if(end_sibling)
+
+
+
+
+    if(absolute(trie[absolute(prev_off)].children)==curr_off)
     {
-        if(trie[absolute(prevprev)].sibling<0)
-            printf("String already present\n");
+        if(trie[absolute(prev_off)].children<0)
+              ;//       printf("String alredy inserted\n");
         else
-            {
-                trie[absolute(prevprev)].sibling=-1*trie[absolute(prevprev)].sibling;
-                printf("Inserted children = %d\n",trie[absolute(prevprev)].sibling);
-            }
+        {
+            trie[absolute(prev_off)].children=-1*trie[absolute(prev_off)].children;
+            //printf("String inserted\n");
+        }  
     }
+    else if(absolute(trie[absolute(prev_off)].sibling)==curr_off)
+    {
+         if(trie[absolute(prev_off)].sibling<0)
+                  ;//   printf("String alredy inserted\n");
+        else
+        {
+            trie[absolute(prev_off)].sibling=-1*trie[absolute(prev_off)].sibling;
+           // printf("String inserted\n");
+        }
+    }
+
+}
+
+
+void searchTrie(char *key)
+{
+    int i,prev_off=0,curr_off=1,break_flag=0;
+    Node curr = trie[curr_off];
+
+    for(i = 0; key[i];i++)
+    {
+        if(absolute(curr.children))
+        {
+            if(trie[absolute(trie[absolute(curr_off)].children)].ch==key[i])
+            {
+                curr=trie[absolute(trie[absolute(curr_off)].children)];
+                prev_off=absolute(curr_off);
+                curr_off=absolute(trie[absolute(curr_off)].children);
+            }
+            else
+            {   // Sibling traversal 
+                curr=trie[absolute(trie[absolute(curr_off)].children)];
+                prev_off=absolute(curr_off);
+                curr_off=absolute(trie[absolute(curr_off)].children);
+                int found_sibling=0;
+                // Traverse the sibling list
+                while(absolute(curr.sibling) && !found_sibling)
+                {
+                    if(trie[absolute(trie[absolute(curr_off)].sibling)].ch==key[i])
+                    {
+                        found_sibling=1;
+                        curr=trie[absolute(trie[absolute(curr_off)].sibling)];
+                        prev_off=absolute(curr_off);
+                        curr_off=absolute(trie[absolute(curr_off)].sibling);
+                        
+
+                    }
+                    else
+                    {
+                        curr=trie[absolute(trie[absolute(curr_off)].sibling)];
+                        prev_off=absolute(curr_off);
+                        curr_off=absolute(trie[absolute(curr_off)].sibling);
+                    }
+
+
+
+                }
+                 // Key not found in sibling list
+                if(!found_sibling)
+                {
+                    break_flag=1;
+                 }
+                }
+            }
+        else
+        {
+            break_flag=1;
+            break;
+         }
+
+    }
+    if(break_flag==1)
+         printf("1==String not present\n");
     else
     {
-        if(trie[absolute(prevprev)].children<0)
-            printf("String already present\n");
+    if(absolute(trie[absolute(prev_off)].children)==curr_off)
+    {
+        if(trie[absolute(prev_off)].children<0)
+              printf("present\n");
         else
-            {
-                trie[absolute(prevprev)].children=-1*trie[absolute(prevprev)].children;
-                printf("Inserted children = %d\n",trie[absolute(prevprev)].children);
-            }
+            printf("2==String not present\n");
+        
+       
     }
-    // trie[prev].children = -newNode();
-    // curr = trie[trie[prev].children];      
-    // curr.ch = key[i];
-    // curr.children = 0;
-    // curr.sibling = 0;
-    // prev = trie[prev].children;
+    else if(absolute(trie[absolute(prev_off)].sibling)==curr_off)
+    {
+         if(trie[absolute(prev_off)].sibling<0)
+                 printf("String present\n");
+        else
+                printf("3==String not present\n");
+     
+       
+    }
+    }
+}
+
+
+//  deleteTop   deleteTire[]
+
+void deleteTriea(char *key)
+{
+    int i,prev_off=0,curr_off=1,break_flag=0;
+    Node curr = trie[curr_off];
+
+    for(i=0;key[i];i++)
+    {
+
+
+        if(absolute(curr.children))
+        {
+            if(trie[absolute(trie[absolute(curr_off)].children)].ch==key[i])
+            {
+                curr=trie[absolute(trie[absolute(curr_off)].children)];
+                prev_off=absolute(curr_off);
+                curr_off=absolute(trie[absolute(curr_off)].children);
+            }
+            else
+            {   // Sibling traversal 
+                curr=trie[absolute(trie[absolute(curr_off)].children)];
+                prev_off=absolute(curr_off);
+                curr_off=absolute(trie[absolute(curr_off)].children);
+                int found_sibling=0;
+                // Traverse the sibling list
+                while(absolute(curr.sibling) && !found_sibling)
+                {
+                    if(trie[absolute(trie[absolute(curr_off)].sibling)].ch==key[i])
+                    {
+                        found_sibling=1;
+                        curr=trie[absolute(trie[absolute(curr_off)].sibling)];
+                        prev_off=absolute(curr_off);
+                        curr_off=absolute(trie[absolute(curr_off)].sibling);
+                        
+
+                    }
+                    else
+                    {
+                        curr=trie[absolute(trie[absolute(curr_off)].sibling)];
+                        prev_off=absolute(curr_off);
+                        curr_off=absolute(trie[absolute(curr_off)].sibling);
+                    }
+                }
+                 // Key not found in sibling list
+                if(!found_sibling)
+                        break_flag=1;
+                 
+                }
+            }
+        else
+        {
+            break_flag=1;
+            break;
+        }
+        if(break_flag==1)
+                {
+                    //printf("String is not present to delete it\n");
+                    return ;
+                }
+
+        DeleteNode DeleteTemp;
+        DeleteTemp.ch=key[i];
+        DeleteTemp.current_off=curr_off;
+        DeleteTemp.previous_off=prev_off;
+        deleteTop++;
+        deleteTire[deleteTop]=DeleteTemp;
+     
+
+    }
+
+    // for(int i=deleteTop;i>=0;i--)
+    // {
+    //     printf("ch=%c current=%d prev=%d\n",deleteTire[i].ch,deleteTire[i].current_off,deleteTire[i].previous_off);
+    // }
+
+    for(int i=deleteTop;i>=0;i--)
+    {
+        int substringflag=0;
+        if(i==(strlen(key)-1) && trie[deleteTire[i].current_off].children!=0)
+        {
+             if(trie[deleteTire[i].current_off].children!=0)
+                {
+                    if(absolute(trie[deleteTire[i].previous_off].children)==deleteTire[i].current_off && trie[deleteTire[i].previous_off].children<0)
+                    {
+                            trie[deleteTire[i].previous_off].children=trie[deleteTire[i].previous_off].children*-1;
+                            substringflag=1;
+                    }
+                    else if(absolute(trie[deleteTire[i].previous_off].sibling)==deleteTire[i].current_off && trie[deleteTire[i].previous_off].sibling<0)
+                    {
+                            trie[deleteTire[i].previous_off].sibling=trie[deleteTire[i].previous_off].sibling*-1;
+                            substringflag=1;
+                    }
+                }
+                if(substringflag==1)
+                {
+                   // searchTrie(key);
+                   // printf("String deleted\n");
+                    return;
+                }
+                else
+                {
+                   // searchTrie(key);
+                  //  printf("Substring not deleted\n");
+                    return;
+                }
+            
+            }
+            else
+            {
+                //availableTop avaliable
+
+                if(trie[deleteTire[i].current_off].children==0  )
+                {
+                    if(trie[deleteTire[i].current_off].sibling==0 )
+                    {
+                        if(absolute(trie[deleteTire[i].previous_off].sibling)==deleteTire[i].current_off)
+                        {
+                            if(trie[deleteTire[i].previous_off].sibling<0 && (i==strlen(key)-1)) 
+                                    trie[deleteTire[i].previous_off].sibling=0;
+                            else if(trie[deleteTire[i].previous_off].sibling>0 && (i!=strlen(key)-1)) 
+                                     trie[deleteTire[i].previous_off].sibling=0;
+                            else if(trie[deleteTire[i].previous_off].sibling<0 && (i!=strlen(key)-1))
+                                    {
+                                       // printf("xxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
+                                        break;
+                                    }
+                             
+                        }
+                        else if(absolute(trie[deleteTire[i].previous_off].children)==deleteTire[i].current_off)
+                        {
+                            if(trie[deleteTire[i].previous_off].children<0 && (i==strlen(key)-1))
+                                trie[deleteTire[i].previous_off].children=0;
+                            else if(trie[deleteTire[i].previous_off].children>0 && (i!=strlen(key)-1)) 
+                                     trie[deleteTire[i].previous_off].children=0;
+                            else if(trie[deleteTire[i].previous_off].children<0 && (i!=strlen(key)-1))
+                                   {
+                                       // printf("xxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
+                                        break;
+                                    }
+                        }
+                       // printf("%c is deleted\n",trie[deleteTire[i].current_off].ch);
+                        availableTop++;
+                        avaliable[availableTop].a_offset=deleteTire[i].current_off;
+                        trie[deleteTire[i].current_off].ch='~';
+                        trie[deleteTire[i].current_off].children=0;
+                        trie[deleteTire[i].current_off].sibling=0;
+                        
+                    }
+                    else if(trie[deleteTire[i].current_off].sibling!=0)
+                    {
+                        if(absolute(trie[deleteTire[i].previous_off].sibling)==deleteTire[i].current_off)
+                        {
+                           if(trie[deleteTire[i].previous_off].sibling<0 && (i==strlen(key)-1)) 
+                                 trie[deleteTire[i].previous_off].sibling=trie[deleteTire[i].current_off].sibling;
+                           else if(trie[deleteTire[i].previous_off].sibling>0 && (i!=strlen(key)-1)) 
+                                trie[deleteTire[i].previous_off].sibling=trie[deleteTire[i].current_off].sibling;
+                           else if(trie[deleteTire[i].previous_off].sibling<0 && (i!=strlen(key)-1))
+                                    {
+                                      //  printf("xxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
+                                        break;
+                                    }
+                        }
+                        else if(absolute(trie[deleteTire[i].previous_off].children)==deleteTire[i].current_off)
+                        {
+                            if(trie[deleteTire[i].previous_off].children<0 && (i==strlen(key)-1))
+                                  trie[deleteTire[i].previous_off].children=trie[deleteTire[i].current_off].sibling;
+                             else if(trie[deleteTire[i].previous_off].children>0 && (i!=strlen(key)-1)) 
+                                  trie[deleteTire[i].previous_off].children=trie[deleteTire[i].current_off].sibling;
+                            else if(trie[deleteTire[i].previous_off].children<0 && (i!=strlen(key)-1))
+                                   {
+                                      //  printf("xxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
+                                        break;
+                                    }
+                        }
+                       // printf("%c is deleted\n",trie[deleteTire[i].current_off].ch);
+                        availableTop++;
+                        avaliable[availableTop].a_offset=deleteTire[i].current_off;
+                        trie[deleteTire[i].current_off].ch='~';
+                        trie[deleteTire[i].current_off].children=0;
+                        trie[deleteTire[i].current_off].sibling=0;
+                        
+
+                    }
+
+
+                }
+
+
+            }
+
+    }
 
 
 
 }
+
+
 int main()
 {
     trie_fd = open("TrieBinary", O_RDWR);
@@ -212,50 +464,148 @@ int main()
         perror("Error opening file for writing");
         exit(EXIT_FAILURE);
     }
-    trie = mmap(0, NODE_NUM * sizeof(int) * LEN, PROT_READ | PROT_WRITE, MAP_SHARED, trie_fd, 0);
+    trie = mmap(0, NODE_NUM * sizeof(Node), PROT_READ | PROT_WRITE, MAP_SHARED, trie_fd, 0);
     if (trie == MAP_FAILED)
     {
         close(trie_fd);
         perror("Error mmapping the file");
         exit(EXIT_FAILURE);
     }
-    end = trie[0].children;
 
-    printf("Initial end = %d\n",end);
 
-    char key[MAX];
-    // Node node;
-    // node.children = newNode();
-    // trie[1] = node;
-    //printf("root ch = %c\nroot.children = %d\nroot.sibling = %d\n",root.ch,root.children,root.sibling);
 
-    //printf("tri[2] ch = %c\ntrie[2].children = %d\ntrie[2].sibling = %d\n",trie[2].ch,trie[2].children,trie[2].sibling);
-    //insertTrie("apple");
-    // insertTrie("apple");
-    // insertTrie("apple");
-    //printf("wolrd %d\n", end);
-    FILE *fpin = fopen("words_10", "r");
+
+    stack_fd = open("deleteStack", O_RDWR);
+    if (stack_fd == -1)
+    {
+        perror("Error opening file for writing");
+        exit(EXIT_FAILURE);
+    }
+    deleteTire= mmap(0, NODE_NUM * sizeof(DeleteNode), PROT_READ | PROT_WRITE, MAP_SHARED, stack_fd, 0);
+    if (deleteTire == MAP_FAILED)
+    {
+        close(stack_fd);
+        perror("Error mmapping the file");
+        exit(EXIT_FAILURE);
+    }
+
+
+
+    ava_fd = open("AvaliableTrie", O_RDWR);
+    if (ava_fd == -1)
+    {
+        perror("Error opening file for writing");
+        exit(EXIT_FAILURE);
+    }
+    avaliable= mmap(0, NODE_NUM * sizeof(Avaliable), PROT_READ | PROT_WRITE, MAP_SHARED, ava_fd, 0);
+    if (avaliable == MAP_FAILED)
+    {
+        close(ava_fd);
+        perror("Error mmapping the file");
+        exit(EXIT_FAILURE);
+    }
+    availableTop=avaliable[0].a_offset;
+    int e=1;
+        end = trie[0].children;
+        char filename[20]="dictionary1";
+     //printf("%d initial new node\n",trie[0].children);
+         char key[MAX];
+          FILE *fpin = fopen(filename, "r");
+           FILE *fpin2 = fopen(filename, "r");
+            FILE *fpin3 = fopen(filename, "r");
+    switch(e)
+{
+    case 1:
+availableTop= avaliable[0].a_offset;
+   printf("avaliable %d\n",availableTop);
     while (fscanf(fpin, "%s", key) != -1)
         {
-            //printf("len = %d\n",strlen(key));
-            printf("%s\n",key);
             insertTrie(key);
         }
-    fclose(fpin);
-    // for(int i=0;i<10;i++)
-    // {
-    //     insertTrie("apple");
-    // }
-
-    printf("end = %d\n",end);
-
-
-
+     printf("end = %d\n",end);
     trie[0].children = end;
-    if (munmap(trie, NODE_NUM * sizeof(int) * LEN) == -1)
+    avaliable[0].a_offset=availableTop;
+
+    fclose(fpin);
+  break;
+
+case 2:
+   
+    printf("search-----------------\n");
+    int i=1;
+    while (fscanf(fpin2, "%s", key) != -1)
+        {
+          printf("%s\n ",key);  
+          searchTrie(key);
+         
+        }
+    
+    fclose(fpin2);
+     printf("end = %d\n",end);
+    trie[0].children = end;
+    
+    break;
+
+
+case 3:
+   
+    printf("delete-----------------\n");
+    while (fscanf(fpin3, "%s", key) != -1)
+        {
+            deleteTop=-1;
+         // printf("%s \n",key);  
+          deleteTriea(key);
+        }
+    
+    fclose(fpin3);
+   
+
+    avaliable[0].a_offset=availableTop;
+   printf("avaliable top=%d\n",availableTop);
+   
+   break;
+
+}
+
+
+ avaliable[0].a_offset=availableTop;
+ printf("%d\n",avaliable[0].a_offset);
+
+   
+    if (munmap(trie, NODE_NUM * sizeof(Node)) == -1)
     {
         perror("Error un-mmapping the file");
     }
     close(trie_fd);
+
+
+       if (munmap(deleteTire, NODE_NUM * sizeof(DeleteNode)) == -1)
+    {
+        perror("Error un-mmapping the file");
+    }
+    close(stack_fd);
+
+       if (munmap(avaliable, NODE_NUM * sizeof(Avaliable)) == -1)
+    {
+        perror("Error un-mmapping the file");
+    }
+    close(ava_fd);
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
     return 0;
 }
