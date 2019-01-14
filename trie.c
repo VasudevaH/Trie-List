@@ -38,7 +38,8 @@ int trie_fd, ava_fd, stack_fd;
 Node *trie;
 DeleteNode *deleteTire;
 Avaliable *avaliable;
-// int *cnt, *stack;
+
+
 
 
 
