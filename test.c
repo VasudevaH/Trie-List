@@ -58,12 +58,17 @@ int main()
     // printf("%d\n",trie[0].children);
     // printf("%d\n",trie[0].sibling);
     // trie[0].children=1; 
-    printf("%c\n",trie[1].ch);
-    printf("%d\n",trie[1].children);
-    printf("%d\n",trie[1].sibling);
-    printf("ch=%c\n",trie[2].ch);
-    printf("c=%d\n",trie[2].children);
-    printf("s=%d\n",trie[2].sibling);
+    // printf("%c\n",trie[1].ch);
+    // printf("%d\n",trie[1].children);
+    // printf("%d\n",trie[1].sibling);
+    for(int i=2;i<=end;i++)
+    {
+   printf("ch=%c ",trie[i].ch);
+    printf("c=%d ",trie[i].children);
+    printf("s=%d\n",trie[i].sibling);
+
+    }
+ 
    
 
 
