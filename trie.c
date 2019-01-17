@@ -189,7 +189,6 @@ void searchTrie(char *key)
                 curr = trie[abs(trie[abs(curr_off)].children)];
                 prev_off = abs(curr_off);
                 curr_off = abs(trie[abs(curr_off)].children);
-                
             }
             else
             { // Sibling traversal
@@ -197,7 +196,6 @@ void searchTrie(char *key)
                 prev_off = abs(curr_off);
                 curr_off = abs(trie[abs(curr_off)].children);
                 int found_sibling = 0;
-            
                 // Traverse the sibling list
                 while (abs(curr.sibling) && !found_sibling)
                 {
@@ -207,14 +205,12 @@ void searchTrie(char *key)
                         curr = trie[abs(trie[abs(curr_off)].sibling)];
                         prev_off = abs(curr_off);
                         curr_off = abs(trie[abs(curr_off)].sibling);
-                        
                     }
                     else
                     {
                         curr = trie[abs(trie[abs(curr_off)].sibling)];
                         prev_off = abs(curr_off);
                         curr_off = abs(trie[abs(curr_off)].sibling);
-                    
                     }
                 }
                 // Key not found in sibling list
@@ -272,7 +268,6 @@ void deleteTriea(char *key)
                 curr = trie[abs(trie[abs(curr_off)].children)];
                 prev_off = abs(curr_off);
                 curr_off = abs(trie[abs(curr_off)].children);
-                
             }
             else
             { // Sibling traversal
@@ -280,7 +275,6 @@ void deleteTriea(char *key)
                 prev_off = abs(curr_off);
                 curr_off = abs(trie[abs(curr_off)].children);
                 int found_sibling = 0;
-                
                 // Traverse the sibling list
                 while (abs(curr.sibling) && !found_sibling)
                 {
@@ -290,14 +284,12 @@ void deleteTriea(char *key)
                         curr = trie[abs(trie[abs(curr_off)].sibling)];
                         prev_off = abs(curr_off);
                         curr_off = abs(trie[abs(curr_off)].sibling);
-                    
                     }
                     else
                     {
                         curr = trie[abs(trie[abs(curr_off)].sibling)];
                         prev_off = abs(curr_off);
                         curr_off = abs(trie[abs(curr_off)].sibling);
-                    
                     }
                 }
                 // Key not found in sibling list
@@ -443,7 +435,7 @@ void deleteTriea(char *key)
     OUTPUT
     DESCRIPTION
 */
-int main()
+int main(int argc, char** argv)
 {
     trie_fd = open("TrieBinary", O_RDWR);
     if (trie_fd == -1)
@@ -487,51 +479,36 @@ int main()
         exit(EXIT_FAILURE);
     }
     availableTop = avaliable[0].a_offset;
-    int e =3;
     end = trie[0].children;
-    char filename[20] = "dictionary1";
-    printf("%d initial new node\n", end);
+    printf("%d initial end\n", end);
     char key[MAX];
-    FILE *fpin = fopen(filename, "r");
+    FILE *fpin = fopen(argv[2], "r");
 
-    switch (e)
+    switch (argv[1][0])
     {
-    case 1:
+    case 'i':
         availableTop = avaliable[0].a_offset;
         printf("avaliable %d\n", availableTop);
         while (fscanf(fpin, "%s", key) != -1)
-        {
             insertTrie(key);
-        }
         printf("end = %d\n", end);
         trie[0].children = end;
         avaliable[0].a_offset = availableTop;
 
         break;
 
-    case 2:
-
-        printf("search-----------------\n");
-        int i = 1;
+    case 's':
         while (fscanf(fpin, "%s", key) != -1)
-        {
-            
             searchTrie(key);
-            //printf("%s %d\n ", key,count);
-        }
-
         printf("end = %d\n", end);
         trie[0].children = end;
 
         break;
 
-    case 3:
-        
-        printf("delete-----------------\n");
+    case 'd':
         while (fscanf(fpin, "%s", key) != -1)
         {
             deleteTop = -1;
-            // printf("%s \n",key);
             deleteTriea(key);
         }
         
