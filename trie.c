@@ -9,10 +9,16 @@
 #include <sys/mman.h>
 #include <math.h>
 #define MAX 100
+/*
+Maximum number of nodes that a
+trie file can have
+*/
 #define NODE_NUM 1027804
 
 
-
+/*
+Structure of the Trie node.
+*/
 typedef struct Node
 {
 
@@ -21,6 +27,10 @@ typedef struct Node
     char ch;
 } Node;
 
+/*
+Structure to keep track of deleted nodes.
+and add it delete_node stack.
+*/
 typedef struct DeleteNode
 {
     char ch;
@@ -28,50 +38,73 @@ typedef struct DeleteNode
     int previous_off;
 } DeleteNode;
 
+/*
+Struture to add deleted nodes into 
+available list Stack.
+*/
 typedef struct Avaliable
 {
     int a_offset;
 } Avaliable;
-int deleteTop = -1;
-unsigned int end, availableTop = -1;
 
-FILE *fp, *fpStack, *fpava;
+//Initialsing the Stacks.
+int deleteTop = -1;
+unsigned int availableTop = -1;
+
+//End pointer and file pointer.
+unsigned int end;
 int trie_fd, ava_fd, stack_fd;
+
+//Pointers to Array of mmapped file.
 Node *trie;
 DeleteNode *deleteTire;
 Avaliable *avaliable;
 
-Node root;
-/*
-    FUNCTION NAME:
-    INPUT:
-    OUTPUT:
-    DESCRIPTION:
-*/
-void insertTrie(char *key)
-{
-    int i, prev_off = 0, curr_off = 1;
-    Node curr = trie[curr_off];
 
+/*
+    FUNCTION NAME:InsertTrie
+    INPUT:String
+    OUTPUT:Return '1' on successful insertion.
+           Return '2' if string already exists.
+           Return '-1' on unsucessful operation.
+    DESCRIPTION:The functions inserts string into 
+    the Trie DataStructure.
+*/
+int insertTrie(char *key)
+{
+    int i;
+    int prev_off = 0;
+    int curr_off = 1;
+    //Initialise  Root Node as my the current node.
+    Node curr = trie[curr_off];
+    //Iterate untill end of string.
     for (i = 0; key[i]; i++)
     {
+        //Check if current node has childern
         if (abs(curr.children))
         {
+            //check if the current node child character is same as scanned character.
             if (trie[abs(trie[abs(curr_off)].children)].ch == key[i])
             {
                 curr = trie[abs(trie[abs(curr_off)].children)];
                 prev_off = abs(curr_off);
                 curr_off = abs(trie[abs(curr_off)].children);
             }
+            //check if the scanned character is present in sibliing list.
             else
-            { // Sibling traversal
+            { 
+                //update current,previous offset and current node.
                 curr = trie[abs(trie[abs(curr_off)].children)];
                 prev_off = abs(curr_off);
                 curr_off = abs(trie[abs(curr_off)].children);
+
+                //flag is set if sibling is found
                 int found_sibling = 0;
-                // Traverse the sibling list
+
+                // Traverse the sibling list to find the scanned character in the sibiling.
                 while (abs(curr.sibling) && !found_sibling)
                 {
+                    //check if the current node sibiling character is same as scanned character.
                     if (trie[abs(trie[abs(curr_off)].sibling)].ch == key[i])
                     {
                         found_sibling = 1;
@@ -79,98 +112,153 @@ void insertTrie(char *key)
                         prev_off = abs(curr_off);
                         curr_off = abs(trie[abs(curr_off)].sibling);
                     }
+                    //continue traversing the sibling list
                     else
                     {
+                        ///update current,previous offset and current node.
                         curr = trie[abs(trie[abs(curr_off)].sibling)];
                         prev_off = abs(curr_off);
                         curr_off = abs(trie[abs(curr_off)].sibling);
                     }
                 }
-                // Key not found in sibling list
+                /*
+                if scanned charcter is not found in sibling list 
+                then Create new sibling node and linking it to its previous sibling
+                 */
                 if (!found_sibling)
                 {
-                    // Creating new sibling node and linking it to its previous sibling
                     Node temp;
+                    /*
+                    Ternary operation to check if there are some available nodes which were already deleted 
+                    from the Trie file and added to Available stack.else return the latest node.which will be 
+                    new_node _number.
+                    */
                     int new_node_number = (availableTop == 0)? ++end : avaliable[availableTop--].a_offset;
+                    //Fill the new node with current scanned character
                     temp.ch = key[i];
                     temp.children = 0;
                     temp.sibling = 0;
+                    //write the new node to Trie file.
                     trie[new_node_number] = temp;
+                    //update current ,previous offset and current node
                     curr = trie[abs(new_node_number)];
                     prev_off = abs(curr_off);
                     curr_off = new_node_number;
+                    //Add new node to sibling list
                     trie[abs(prev_off)].sibling = new_node_number;
                 }
             }
         }
+        //Create newe node if current node as no childern.
         else
         {
             // Creating new child node and linking it to its parent
             Node temp;
+            /*
+                Ternary operation to check if there are some available nodes which were already deleted 
+                from the Trie file and added to Available stack.else return the latest node.which will be 
+                new_node _number.
+            */
             int new_node_number =  (availableTop == 0)? ++end : avaliable[availableTop--].a_offset;
-            //printf("new node=%d",new_node_number);
+            //Fill the new node with current scanned character
             temp.ch = key[i];
             temp.children = 0;
             temp.sibling = 0;
+            //write the new node to Trie file.
             trie[new_node_number] = temp;
+             //update current ,previous offset and current node
             prev_off = abs(curr_off);
             curr_off = new_node_number;
             curr = trie[abs(new_node_number)];
+            //Add new node has child to parent node i'e previous node
             trie[abs(prev_off)].children = new_node_number;
         }
     }
-
+    //check if current node is child of previous node
     if (abs(trie[abs(prev_off)].children) == curr_off)
     {
+        /*
+        Check if current node was inserted previously
+        by looking into previous child offset.Negative 
+        value indicates the string was previously inserted.
+        */
         if (trie[abs(prev_off)].children < 0)
-            ; //       printf("String alredy inserted\n");
+            return 2; 
+        /*
+        Make pervious child offset negative to indicate end of string
+        */
         else
         {
             trie[abs(prev_off)].children = -1 * trie[abs(prev_off)].children;
-            //printf("String inserted\n");
+            return 1;
         }
     }
+    //check if current node is sibling of previous  node
     else if (abs(trie[abs(prev_off)].sibling) == curr_off)
     {
+        /*
+        Check if current node was inserted previously
+        by looking into previous sibling offset.Negative 
+        value indicates the string was previously inserted.
+        */
         if (trie[abs(prev_off)].sibling < 0)
-            ; //   printf("String alredy inserted\n");
+           return 2 ; 
+         /*
+        Make pervious sibling offset negative to indicate end of string
+        */
         else
         {
             trie[abs(prev_off)].sibling = -1 * trie[abs(prev_off)].sibling;
-            // printf("String inserted\n");
+            return 1;
         }
     }
+    else
+        return -1;
 }
+
 /*
-    FUNCTION NAME:
-    INPUT
-    OUTPUT
-    DESCRIPTION
+    FUNCTION NAME:SearchTrie
+    INPUT:Array of characters
+    OUTPUT:Return 1 if string is found
+           Return -1 if String not found
+    DESCRIPTION:The functions will search string in
+    the Trie DataStructure.
 */
-void searchTrie(char *key)
+int searchTrie(char *key)
 {
-    int i, prev_off = 0, curr_off = 1, break_flag = 0;
+    int i;
+    int prev_off = 0;
+    int curr_off = 1;
+    int break_flag = 0;
+    //Initialise  Root Node as my the current node.
     Node curr = trie[curr_off];
     
+    //Iterate untill end of string.
     for (i = 0; key[i]; i++)
     {
+         //Check if current node has childern
         if (abs(curr.children))
         {
+            //check if the current node child character is same as scanned character.
             if (trie[abs(trie[abs(curr_off)].children)].ch == key[i] )
             {
                 curr = trie[abs(trie[abs(curr_off)].children)];
                 prev_off = abs(curr_off);
                 curr_off = abs(trie[abs(curr_off)].children);
             }
+            //check if the scanned character is present in sibliing list.
             else
-            { // Sibling traversal
+            { 
+                //update current,previous offset and current node.
                 curr = trie[abs(trie[abs(curr_off)].children)];
                 prev_off = abs(curr_off);
                 curr_off = abs(trie[abs(curr_off)].children);
+                //flag is set if sibiling is found.
                 int found_sibling = 0;
                 // Traverse the sibling list
                 while (abs(curr.sibling) && !found_sibling)
                 {
+                    //check if the current node sibiling character is same as scanned character.
                     if (trie[abs(trie[abs(curr_off)].sibling)].ch == key[i])
                     {
                         found_sibling = 1;
@@ -178,8 +266,9 @@ void searchTrie(char *key)
                         prev_off = abs(curr_off);
                         curr_off = abs(trie[abs(curr_off)].sibling);
                     }
+                    //continue searching the sibling list
                     else
-                    {
+                    {   //update current,previous offset and current node.
                         curr = trie[abs(trie[abs(curr_off)].sibling)];
                         prev_off = abs(curr_off);
                         curr_off = abs(trie[abs(curr_off)].sibling);
@@ -189,41 +278,53 @@ void searchTrie(char *key)
                 if (!found_sibling)
                 {
                     break_flag = 1;
+                    return -1;
                 }
             }
         }
         else
         {
             break_flag = 1;
-            break;
+            return -1;
         }
     }
-    if (break_flag == 1)
-        printf("1==String not present\n");
-    else
+    
+    
+    //check if current node is child of previous node
+    if (abs(trie[abs(prev_off)].children) == curr_off)
     {
-        if (abs(trie[abs(prev_off)].children) == curr_off)
-        {
-            if (trie[abs(prev_off)].children < 0)
-               ;// printf("present\n");
-            else
-                printf("2==String not present\n");
-        }
-        else if (abs(trie[abs(prev_off)].sibling) == curr_off)
-        {
-            if (trie[abs(prev_off)].sibling < 0)
-              ; // printf("String present\n");
-            else
-                printf("3==String not present\n");
-        }
+        /*
+        Check if previous node child offset is negative
+        indicting end of string
+        */
+        if (trie[abs(prev_off)].children < 0)
+            return 1;
+        else
+            return -1;
     }
+    //check if current node is sibling of previous node
+    else if (abs(trie[abs(prev_off)].sibling) == curr_off)
+    {
+        /*
+        Check if previous node sibling offset is negative
+        indicting end of string
+        */
+        if (trie[abs(prev_off)].sibling < 0)
+            return 1;
+        else
+            return -1;
+    }
+
 }
 
 /*
-    FUNCTION NAME:
-    INPUT
-    OUTPUT
-    DESCRIPTION
+    FUNCTION NAME:deleteTrie
+    INPUT:String
+    OUTPUT:Return 1 if string is successfully deleted
+           Return -1 if deletion operation fails
+    DESCRIPTION:The functions will search string in
+                the Trie DataStructure and then delete 
+                the string.
 */
 void deleteTriea(char *key)
 {
@@ -288,10 +389,6 @@ void deleteTriea(char *key)
         deleteTire[deleteTop] = DeleteTemp;
     }
 
-    // for(int i=deleteTop;i>=0;i--)
-    // {
-    //     printf("ch=%c current=%d prev=%d\n",deleteTire[i].ch,deleteTire[i].current_off,deleteTire[i].previous_off);
-    // }
 
     for (int i = deleteTop; i >= 0; i--)
     {
@@ -373,10 +470,7 @@ void deleteTriea(char *key)
                         else if (trie[deleteTire[i].previous_off].sibling > 0 && (i != sl))
                             trie[deleteTire[i].previous_off].sibling = trie[deleteTire[i].current_off].sibling;
                         else if (trie[deleteTire[i].previous_off].sibling < 0 && (i != sl))
-                        {
-                            //  printf("xxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
                             break;
-                        }
                     }
                     else if (abs(trie[deleteTire[i].previous_off].children) == deleteTire[i].current_off)
                     {
@@ -483,6 +577,7 @@ int main(int argc, char** argv)
             deleteTop = -1;
             deleteTriea(key);
         }
+        
         avaliable[0].a_offset = availableTop;
         printf("avaliable top=%d\n", availableTop);
 
