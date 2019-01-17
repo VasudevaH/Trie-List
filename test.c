@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include<math.h>
 #define NODE_NUM 10000000
 #define LEN 26
 #define MAX 100
@@ -24,8 +25,10 @@ FILE *fp, *fpStack, *fpCnt;
 int trie_fd,cnt_fd,stack_fd;
 Node *trie;
 int *cnt,*stack;
-
-
+static inline int  display()
+{
+    return 2;
+}
 int main()
 {
     trie_fd = open("TrieBinary",O_RDWR);
@@ -40,27 +43,9 @@ int main()
 	exit(EXIT_FAILURE);
     }
 
-    //Node root = trie[0];
-    // printf("initial c = %c\n",root.ch);
-    // printf("initial children = %d\n",root.children);
 
-    // root.ch='b';
-    // root.children=10;
-    // root.sibling=20;
-    // trie[0]=root;
-    // root.ch='c';
-    // root.children=100;
-    // root.sibling=200;
-    // trie[1]=root;
 
-    //root = trie[0];
-    // printf("%c\n",trie[0].ch);
-    // printf("%d\n",trie[0].children);
-    // printf("%d\n",trie[0].sibling);
-    // trie[0].children=1; 
-    // printf("%c\n",trie[1].ch);
-    // printf("%d\n",trie[1].children);
-    // printf("%d\n",trie[1].sibling);
+ 
     for(int i=2;i<=end;i++)
     {
    printf("ch=%c ",trie[i].ch);
@@ -69,6 +54,7 @@ int main()
 
     }
  
+    printf("%d\n",display());
    
 
 
